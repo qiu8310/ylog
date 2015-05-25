@@ -40,21 +40,20 @@ c.setLevelMode('weight');
 
 
 /********* 定义 styles *********/
-// @TODO callback 的参数不只一个，是用户传入的，所以下面的方法都定义错了
-
 // @TODO str 可能带有样式！
 function upFirst (str) { return str[0].toUpperCase() + str.substr(1); }
-c.styleFlag('title', function(str) {
-  return chalk.underline(upFirst(str));
+function format (args) { return c.format.apply(c, args); }
+c.styleFlag('title', function() {
+  return chalk.underline(upFirst(format(arguments)));
 });
-c.styleFlag('subtitle', function(str) {
-  return chalk.white.bold(upFirst(str));
+c.styleFlag('subtitle', function() {
+  return chalk.white.bold(upFirst(format(arguments)));
 });
 
-c.styleFlag('log', function(str) { return str; });
-c.styleFlag('write', function(str) { return str; });
-c.styleFlag('writeOk', function(str) { return chalk.green('>> ') + str; });
-c.styleFlag('writeError', function(str) { return chalk.red('>> ') + str; });
+c.styleFlag('log', function() { return format(arguments); });
+c.styleFlag('write', function() { return format(arguments); });
+c.styleFlag('writeOk', function() { return chalk.green('>> ') + format(arguments); });
+c.styleFlag('writeError', function() { return chalk.red('>> ') + format(arguments); });
 
 
 // Pretty-format a word list.
@@ -118,8 +117,6 @@ c.modifierFlag('wrap',
 );
 
 
-// 总是在程序最后输出一个换行符
-process.on('exit', function() { process.stdout.write(os.EOL); });
 
 
 

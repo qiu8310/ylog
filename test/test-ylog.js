@@ -133,24 +133,39 @@ describe('ylog', function () {
 
     it('should support no namespace', function() {
       var y = ylog;
+      var z = ylog();
       y.enabled.should.eql(true);
+      z.enabled.should.eql(true);
+      z.should.eql(y);
 
       testOut(function() {
         y.write('abc');
-        y.write('def');
+        z.write('def');
       }, /^abc\ndef$/);
 
 
       // you can also disable it
       y.enabled = false;
+      z.enabled = false;
 
       y.write('xx');
-      y.write('yy');
+      z.write('yy');
 
       out.should.eql('');
 
       // recover it, because others rely on it
       y.enabled = true;
+      z.enabled.should.eql(true);
+    });
+
+    it('should support a colored namespace', function() {
+      var y = ylog(chalk.red('hah'));
+      y.enabled = true;
+
+      testOut(function() {
+        y.log('aa');
+      });
+      out2.should.eql('\n   ' + chalk.red('hah') + ' aa');
     });
 
   });
@@ -183,6 +198,12 @@ describe('ylog', function () {
           ylog[level](level);
         }, level === 'silent' ? '' : re);
       });
+    });
+
+    it('should throw when set no exist level', function() {
+      (function() {
+        ylog.setLevel('no_exist_xx');
+      }).should.throw();
     });
 
     it('should support setLevelMode("weight")', function() {
@@ -223,6 +244,20 @@ describe('ylog', function () {
 
     });
 
+    it('should support multiple levels', function() {
+      ylog.setLevel(['ok', 'info'], 'only');
+      testOut(function() {
+        ylog.ok.info('xx');
+      });
+      out2.should.eql('\n ' + ylog.levels.ok.tag + '  xx');
+
+      ylog.setLevel('silly', 'weight');
+      testOut(function() {
+        ylog.info.ok('xx');
+      });
+      out2.should.eql('\n ' + ylog.levels.ok.tag + '  xx');
+    });
+
   });
   context('modifier', function() {
 
@@ -238,6 +273,12 @@ describe('ylog', function () {
       testOut(function() {
         ylog.nomd('**xx**');
       }, '**xx**');
+    });
+
+    it('useless no tag', function() {
+      testOut(function() {
+        ylog.no.log('ab');
+      }, 'ab');
     });
 
     it('tag', function() {
@@ -281,15 +322,235 @@ describe('ylog', function () {
 
     });
 
+    it('nocolor', function() {
+      testOut(function() {
+        ylog.color('red').no.color('abc');
+      });
+      out2.should.eql('\nabc');
+    });
+
     it('wrap', function() {
       testOut(function() {
         ylog.wrap(3).log('areyouok!')
       }, '\nare\nyou\nok!', {trim: false});
+
+      testOut(function() {
+        ylog.wrap(3).log(chalk.red.underline('are') + chalk.green('youok!'))
+      }, '\nare\nyou\nok!', {trim: false});
+
+      var y = ylog.wrap(0.6).log('a');
+      y.options.wrap.should.not.eql(0.6);
+
+      var t = ylog.wrap('60%').log('a');
+      y.options.wrap.should.eql(t.options.wrap);
     });
 
   });
   context('style', function() {
+    it('log', function() {
+      testOut(function() {
+        ylog.log('abc');
+      }, 'abc')
+    });
+    it('write', function() {
+      testOut(function() {
+        ylog.write('abc');
+      }, 'abc')
+    });
+    it('title', function() {
+      testOut(function() {
+        ylog.title('abc');
+      }, 'Abc');
+    });
+    it('subtitle', function() {
+      testOut(function() {
+        ylog.subtitle('abc');
+      }, 'Abc')
+    });
+    it('writeOk', function() {
+      testOut(function() {
+        ylog.writeOk('abc');
+      }, '>> abc')
+    });
+    it('writeError', function() {
+      testOut(function() {
+        ylog.writeError('abc');
+      }, '>> abc')
+    });
+    it('writeFlag', function() {
+      testOut(function() {
+        ylog.writeFlag(['a', 'b']);
+      }, 'Flags: a, b');
 
+      testOut(function() {
+        ylog.writeFlag({a: true, b: 'abc'}, 'XX');
+      }, 'XX: a, b="abc"');
+
+      testOut(function() {
+        ylog.writeFlag(false);
+      }, 'Flags: (none)');
+    });
+  });
+
+  context('new flag', function() {
+    it('create occupied flag should throw error', function() {
+      (function() {
+        ylog.modifierFlag('namespace');
+      }).should.throw();
+
+      (function() {
+        ylog.modifierFlag('levels');
+      }).should.throw();
+    });
+
+    it('create exists flag should successed', function() {
+      (function() {
+        ylog.modifierFlag('md');
+      }).should.not.throw();
+
+      (function() {
+        ylog.modifierFlag('tag');
+      }).should.not.throw();
+    });
+
+    it('create new level', function() {
+      ylog.levelFlag('fuck', 4500);
+      testOut(function() {
+        ylog.fuck('no body');
+      }, 'fuck no body');
+    });
+  });
+
+  context('format output', function() {
+    it('ylog.format', function() {
+      // o, j, f, d, s
+      testOut(function() {
+        ylog.ln('|%o %j %f %d %s %% %z|', {a: 1}, 'a', '1.2', '3', 'b')
+      }, '|{ a: 1 } "a" 1.2 3 b % %z|');
+
+
+      testOut(function() {
+        ylog.ln(['1', 2], 1);
+      }, /^\[ ['"]1['"], 2 \] 1$/ );
+
+
+      testOut(function() {
+        ylog.ln(new Error('x'));
+      }, 'Error: x', {useIndexOf: true});
+
+    });
+
+    it('ylog.brush', function() {
+      ylog.brush('ab', 'red.green').should.eql(chalk.red.green('ab'));
+      (function() {ylog.brush('ab', 'red.xgreen')}).should.throw();
+      ylog.brush('ab', '').should.eql('ab');
+
+    });
+  });
+
+  context('config', function() {
+    it('disable some markdown', function() {
+      ylog.markdown['**'] = false;
+      testOut(function() {
+        ylog.ln('**xx**');
+      }, '**xx**');
+      ylog.markdown['**'] = true;
+    });
+
+    it('hide ns tag', function() {
+      ylog.Tag.ns.show = false;
+      var y = ylog('ab');
+      y.enabled = true;
+      testOut(function() {
+        y.ln('xx');
+      }, 'xx');
+      ylog.Tag.ns.show = true;
+    });
+
+    it('show pid tag', function() {
+      ylog.Tag.pid.show = true;
+      testOut(function() {
+        ylog.ln('xx');
+      }, /^\d+ xx$/);
+      ylog.Tag.pid.show = false;
+    });
+
+    it('ns tag align', function() {
+      var ab = ylog('ab');
+      var abc = ylog('abc');
+      ab.enabled = true;
+      abc.enabled = true;
+
+      testOut(function() {
+        ylog.Tag.ns.align = 'left';
+        ylog.Tag.ns.len = 4;
+
+        ab.log('ab');
+        abc.log('bc');
+      }, '\n   ab   ab\n   abc  bc', {trim: false});
+
+      testOut(function() {
+        ylog.Tag.ns.align = 'right';
+        ylog.Tag.ns.len = 4;
+
+        ab.log('ab');
+        abc.log('bc');
+      }, '\n     ab ab\n    abc bc', {trim: false});
+
+      ylog.Tag.ns.len = 0;
+
+    });
+
+    it('re-order ns and level tag', function() {
+      ylog.Tag.ns.order = 40;
+
+      testOut(function() {
+        var y = ylog('y');
+        y.enabled = true;
+        y.debug('c');
+      }, '[D] y c');
+
+      ylog.Tag.ns.order = 20;
+    });
+
+    it('prefixLabelEachLine', function() {
+      ylog.setPrefixLabelEachLine(true);
+
+      testOut(function() {
+        var y = ylog('ab');
+        y.enabled = true;
+        y.wrap(3).log('areyouok!');
+      }, '\n   ab are\n   ab you\n   ab ok!', {trim: false});
+
+      ylog.setPrefixLabelEachLine(false);
+    });
+  });
+
+
+
+  context('label group', function() {
+
+  });
+
+
+  context('event', function() {
+    it('should emit sys.[ns].[level]', function() {
+      var a = 0;
+      var y = ylog('ab');
+      y.enabled = true;
+
+      ylog.on('sys.ab.ok', function() {
+        a++;
+      });
+
+      y.ok(1);
+      y.ok(2);
+      y.error(2);
+      y.debug(2);
+
+      a.should.eql(2);
+
+    });
   });
 
 });

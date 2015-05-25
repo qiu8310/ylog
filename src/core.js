@@ -73,134 +73,7 @@ var defaultYlog, ylogProtoKeys;
 
 // 用于生成链式结构的 prototype
 var ylogChainProto = {},
-
-  ylogProto = {
-
-    // 传入用户可能需要用到的库
-    chalk: chalk,
-
-
-    levels: {},     // 所有的用 ylog.levelFlag 定义的 level 都保存在这
-    styles: {},     // 所有的用 ylog.styleFlag 定义的 style 都保存在这
-    modifiers: {},  // 所有的用 ylog.modifierFlag 定义的 modifier 都保存在这
-
-
-    // 输出日志是显示在日志最左边的 process id, namespace 和 level
-    // 可以定义它们显示的长度，对齐方式，及是否显示，还有显示顺序等
-    Tag: {
-      pid:  {len:  5, align: 'right', fill: ' ', order: 10, show: false, color: 'gray' }, // color 只对 pid 有效
-      ns:   {len:  0, align: 'left',  fill: ' ', order: 20, show: true  },
-      level:{len: -1, align: 'center',fill: ' ', order: 30, show: true, max: 3} // 如果 len < 0，则会使用 max 属性当 len
-    },
-
-
-    // 指定当前的日志级别，如果没有指定，则输出所有级别的日志
-    // 同时可以指定成数组（主要是 levelMode = 'only' 时非常有用）
-    // 请使用 ylog.setLevel 设置此参数
-    level: null,
-
-    // only 和 weight 两种形式：
-    // only 表示只显示 level 所指定的日志级别；而 weight 表示显示大于等于 level 的级别的所有日志
-    // 请使用 ylog.setLevelMode 设置此参数
-    levelMode: 'weight',
-
-    // 在某一次输出中，可以会包含多行，你是否需要在每行的前面都输出 pid/ns/level 这些 label 呢？
-    prefixLabelEachLine: false,
-
-
-    /**
-     * 定义 markdown 替换的规制
-     *
-     *  - 样式支持同时写多个，比如 "bold.gray"，则加粗的同时还会使字体变灰
-     *  - 如果你不想要这个样式，只要将它设置成 false 即可
-     *  - 如果你要添加新的标签，你要同时修改 markdownRegExp 中的正则表达式（建议不要这样做）
-     *
-     * @example
-     *
-     *  如果出现 "are **you** ok"，则 you 会使用 markdowns.** 中所指定的样式
-     */
-    markdown: {
-      '**': 'bold',
-      '*': 'gray',
-      '__': 'underline',
-      '_': 'italic',
-      '!': 'yellow',
-      '@': 'blue',
-      '&': 'green'
-    },
-
-    // 配合 markdown 用的
-    markdownRegExp: /(\s|^)(\*\*|\_\_|\*|\_|\!|@|&)([^\*\_\s]|[^\*\_\s][\s\S]*?[^\*\_\s])\2(?=[\s,.!?]|$)/g,
-
-
-    // 给 ylog.format 用的
-    formats: {
-      o: function(v) { return util.inspect(v, {colors: true, depth: 2}).replace(/\s*\n\s*/g, ' '); },
-      j: function(v) { return JSON.stringify(v); },
-      d: function(v) { return parseInt(v, 10); },
-      f: function(v) { return parseFloat(v); },
-      s: function(v) { return String(v); }
-    },
-
-    /**
-     * 类似于 util.format
-     */
-    format: function() {
-      var tpl, args = [];
-
-      if (!arguments.length) { return ''; }
-
-      // don't slice `arguments`, it prevents v8 optimizations
-      for (var i = 0; i < arguments.length; i++) { args[i] = arguments[i]; }
-
-      if (typeof args[0] !== 'string') {
-        args[0] = coerce(args[0]);
-        tpl = '%o';   // 第一个参数总是当 Object 输出
-      } else {
-        tpl = args.shift();
-      }
-
-      tpl = tpl.replace(/%([a-z%])/, function(raw, key) {
-        if (key === '%') { return '%'; }
-        if (key in ylogProto.formats) {
-          return ylogProto.formats[key](args.shift());
-        }
-      });
-
-      args.unshift(tpl);
-      return args.join(' ');
-    },
-
-    /**
-     * 对于需要颜色的标签，可以从 colors 中按获取顺序取出下一个给标签使用
-     *
-     * @example
-     * namespace 的标签的颜色就是从这里取的
-     */
-    colors: ['cyan', 'green', 'yellow', 'blue', 'magenta', 'gray'],
-
-
-    /**
-     * 用指定的 color 对 text 处理，可以同时指定多个颜色：如 'bold.green'
-     *
-     * @param {String} text
-     * @param {String} color
-     * @returns {String}
-     */
-    brush: function(text, color) {
-      color = color.trim();
-      if (!color) { return text; }
-      var brusher = chalk;
-      color.split(/\s*[.,\s]\s*/).forEach(function(c) {
-        brusher = brusher[c];
-        if (!brusher) { throw new Error('Style <' + c + '> not exists in chalk!'); }
-      });
-      return brusher(text);
-    },
-
-    // 所有的输出都是走此函数
-    output: function(str) { process.stdout.write(str); }
-  };
+  ylogProto = require('./core-proto');
 
 
 // bind event's emit, on, once function to ylogProto, and ylogChainProto
@@ -216,9 +89,8 @@ var levels = ylogProto.levels,
   modifiers = ylogProto.modifiers,
   Tag = ylogProto.Tag;
 
-
 function coerce(val)      {
-  if (val instanceof Error) { return val.stack || val.message; }
+  if (val instanceof Error) { return val.stack ? val.stack + os.EOL : val.message; }
   return val;
 }
 function noop()           {}
@@ -419,7 +291,7 @@ function call() {
     if (label && output) {
       var outputPad = ylog.prefixLabelEachLine ? label : labelFill;
       output = (label + output).replace(/\n(?=[^\n]+)/g, function(raw) {
-        return raw + (raw.length ? outputPad : label);
+        return raw + outputPad;
       });
     }
 
@@ -607,24 +479,29 @@ ylogProto.modifierFlag = function(name, postFn, callFn) {
  * 添加或修改 Style Flag
  *
  * @param {String} name - 样式名称
- * @param {Function} [fn] - 样式处理程序，fn 绑定在了 chalk 之上，所以你可以在 fn 中使用 this.red.bgGreen 等 chalk 方法
+ * @param {Function} fn - 样式处理程序，fn 绑定在了 chalk 之上，所以你可以在 fn 中使用 this.red.bgGreen 等 chalk 方法
  */
 ylogProto.styleFlag = function(name, fn) {
-  styles[name] = fn || noop;
+  styles[name] = fn;
   appendFlag(name);
 };
 
 /**
  * 指定一个默认级别，也可以是一个数组
  * @param {String|Array} levelFlags
+ * @param {String} levelMode
  */
-ylogProto.setLevel = function(levelFlags) {
+ylogProto.setLevel = function(levelFlags, levelMode) {
   [].concat(levelFlags).forEach(function(flag) {
     if (!(flag in levels)) {
       throw new Error('Level flag <' + flag + '> not exists.');
     }
   });
   ylogProto.level = levelFlags;
+
+  if (levelMode) {
+    ylogProto.setLevelMode(levelMode);
+  }
 };
 
 /**
@@ -638,6 +515,19 @@ ylogProto.setLevel = function(levelFlags) {
 ylogProto.setLevelMode = function(mode) {
   ylogProto.levelMode = mode === 'only' ? 'only' : 'weight';
 };
+
+
+/**
+ * 是否每个换行的地方都输出 label 前缀
+ * @param {Boolean} bool
+ */
+ylogProto.setPrefixLabelEachLine = function(bool) {
+  ylogProto.prefixLabelEachLine = bool;
+};
+
+
+// 总是在程序最后输出一个换行符
+process.on('exit', writeln);
 
 
 module.exports = makeYlog();
