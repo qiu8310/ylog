@@ -3,6 +3,8 @@
 var ylog = require('../'),
   chalk = require('chalk');
 
+ylog.attributes.pad = 4;
+
 var levels = Object.keys(ylog.levels).sort(function(a, b) {
   return ylog.levels[a].weight - ylog.levels[b].weight;
 });
@@ -10,7 +12,7 @@ var levels = Object.keys(ylog.levels).sort(function(a, b) {
 ylog.setLevel(levels[0]);
 
 
-ylog.title.ln('\n' + levels.length + ' LEVELS: ');
+ylog.ln.title(levels.length + ' LEVELS: ').ln();
 
 levels.forEach(function(level) {
 
@@ -21,11 +23,6 @@ levels.forEach(function(level) {
   console.log();
 });
 
-
-// show levels that larger than debug
-
-
-// only show debug level and error level
 
 
 

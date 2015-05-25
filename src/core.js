@@ -7,12 +7,14 @@
  */
 
 var EventEmitter = require('events').EventEmitter,
-  util = require('util'),
   os = require('os');
 
 var chalk = require('chalk');
 
-var ns = require('./ns');
+var ns = require('./ns'),
+  h = require('./helper');
+
+
 var eve = new EventEmitter();
 var defaultYlog, ylogProtoKeys;
 
@@ -33,41 +35,6 @@ var defaultYlog, ylogProtoKeys;
  - 支持 error stack
  - 支持指定每行的输出宽度（使用 wrap，支持使用指定的整数宽度、百分比或小数，如 `ylog.wrap(0.8).info('...')`）
  - 支持简单的类似于 markdown 的语法
-
-
- allFlags: (按 levels -> styles -> modifiers 的顺序执行)
-
-
- levels:
-   silly
-   verbose
-   info
-   http
-   warn
-   ok
-   error
-   fatal
-
- styles:
-   title
-   subtitle
-   write
-
- modifiers: (在文本输出前的最后一刻执行)
-   noln    - 不要换行
-   noeol   - 和 noln 一样
-   nocolor - 输出的内容不带任何的样式
-   nomd    - 不要使用类 markdown 的语法
-   silent  - 无任何输出
-
-   stack - 输出 error.stack @TODO
-   wrap  - 指定输出文本的最大宽度
-
-   @TODO
-   prettyColor?
-   human
-   time
-   profile
  */
 
 
@@ -86,21 +53,17 @@ var ylogChainProto = {},
 // 短名字引用
 var levels = ylogProto.levels,
   styles = ylogProto.styles,
-  modifiers = ylogProto.modifiers,
+
+  attributes = ylogProto.attributes,
   Tag = ylogProto.Tag;
 
-function coerce(val)      {
-  if (val instanceof Error) { return val.stack ? val.stack + os.EOL : val.message; }
-  return val;
-}
-function noop()           {}
-function realLen(str)     { return chalk.stripColor(str).length; }
+
 function argsToStr(args)  { return ylogProto.format.apply(ylogProto, args); }
 function write()          { ylogProto.output(argsToStr(arguments)); }
 function writeln()        { ylogProto.output(argsToStr(arguments) + os.EOL); }
 function md(str)          {
   return str.replace(ylogProto.markdownRegExp, function(raw, left, key, word) {
-    var color = ylogProto.markdown[key];
+    var color = ylogProto.markdowns[key];
     if (!color) { return raw; }
     return left + ylogProto.brush(word, color);
   });
@@ -131,7 +94,7 @@ function appendFlag(flag) {
   if (flag in ylogProto) { return false; }
 
   var initYlog = function() {
-    return chain([flag], {calledCount: 0}, this);
+    return chain([flag], {calledCount: 0, attributes: {}}, this);
   };
 
   var getProperty = function () {
@@ -201,164 +164,239 @@ function chain(flags, options, ylog) {
 }
 
 
+var transforms = ylogProto.attributeTransforms;
+function setAttribute(flag, args, options, batch) {
+  var trans = transforms[flag];
+  var val = args[0];
+  switch (trans) {
+    case Boolean:
+      val = !!val;
+      break;
+    case Number:
+      if (typeof val === 'boolean') {
+        val = val ? 1 : 0;
+        if (val && !batch) {
+          val = getAttribute(flag, options) + val;
+        }
+      } else {
+        val = parseInt(val, 10);
+        val = isNaN(val) ? 1 : val;
+      }
+      break;
+    case String:
+      if (typeof val !== 'string') {
+        return false;
+      }
+      break;
+    default :
+      if (typeof trans === 'function') {
+        val = trans.apply(null, args);
+      }
+  }
+
+  options.attributes[flag] = val;
+}
+
+function getAttribute(flag, options) {
+  return ( flag in options.attributes ) ? options.attributes[flag] : ylogProto.attributes[flag];
+}
+
+/**
+ * 分析 flags，返回其中的 levels 和 styles，并且设置上面的 attributes 到 options.attributes 中
+ * @param {Array} flags
+ * @param {Arguments} args
+ * @param {Object} options
+ */
+function parseFlags(flags, args, options) {
+  var i, flag, len = flags.length, no;
+  var result = {levels: [], styles: []};
+  for (i = 0; i < len; i++) {
+    flag = flags[i];
+    no = false;
+
+    while (flag === 'no') {
+      flag = flags[++i];
+      no = !no;
+    }
+
+    if (flag.indexOf('no') === 0) {
+      no = !no;
+      flag = flag.substr(2);
+    }
+
+    if (flag === 'attr' || (flag in attributes)) {
+
+      // attr 的参数必须要是个对象
+      if (flag === 'attr') {
+        /* jshint ignore:start */
+        if (args.length && i === len - 1) {
+          Object.keys(args[0]).forEach(function(key) {
+            setAttribute(key, [args[0][key]], options, true);
+          });
+        }
+        /* jshint ignore:end */
+      } else {
+        setAttribute(flag, args.length && i === len - 1 ? args : [!no], options);
+      }
+    }
+
+    if (flag) {
+      if (flag in levels) {
+        result.levels.push(flag);
+      } else if (flag in styles) {
+        result.styles.push(flag);
+      }
+    }
+  }
+
+  return result;
+}
+
+
+function getFnResult(fn, args, ctx) {
+  var result = fn.apply(ctx, args || []);
+  return typeof result === 'undefined' ? '' : result;
+}
+
 var lastEOL = true; // 记录是否需要输出换行符（第一次输出不需要换行）
 /**
  * 函数形式的链式调用会执行此函数
  */
 function call() {
-  var flags = this.flags, options = this.options, ylog = this.ylog;
+  var flags = this.flags,
+    options = this.options,
+    ylog = this.ylog;
 
-  var buffer = [], flag, level, label, labelLen, labelFill;
+  var rtn = chain([], options, ylog);
 
-  var parsed = parseFlags(flags),
-    FLAG = parsed.FLAG, lastFlag = parsed.lastFlag, attributes = parsed.attributes;
+  // 如果 disabled， 则直接返回即可
+  if (!ylog.enabled) { return rtn; }
 
-  var chainFn = chain(flags, options, ylog);
+  // 获取指定的 level 级别
+  var parsed = parseFlags(flags, [].slice.call(arguments), options),
+    flagLevels = parsed.levels,
+    flagStyles = parsed.styles,
+    flagLevel;
 
+  // 如果上次使用了 level，则把它导入到此次的 call 中
+  if (options.level) { flagLevels.push(options.level); }
+  flagLevel = getCallLevel(flagLevels);
+  options.level = flagLevel; // 保存当前 level
 
-  // 如果最后一个 flag 是 modifier，则执行它的 call function
-  if (lastFlag in modifiers && modifiers[lastFlag].call) {
-    options[lastFlag] = options[lastFlag] || {};
-    modifiers[lastFlag].call.apply(options[lastFlag], arguments);
-  } else {
+  // 用户指定了 level，但没有用户要的 level；或者指定的 level 就是 silent
+  if (flagLevels.length && !flagLevel || flagLevel === 'silent') { return rtn; }
 
-    // 等属性更新了再 return
-    if (!ylog.enabled) { return chainFn; }
+  // 没有输出，也直接返回
+  if (!flagStyles.length && !flagLevels.length) { return rtn; }
 
-    // 获取要输出的 level 级别
-    level = getCallLevel(FLAG.levels);
+  // 根据 attributes 输出 styles
+  var label = '', buffer = [], lastFlag = h.last(flags), i;
+  if (options.calledCount === 0) {
+    if (!lastEOL) { writeln(); }
 
-    //=> 用户指定了 level，但没有用户要的 level；或者指定的 level 就是 silent
-    if (FLAG.levels.length && !level || level === 'silent') {
-      return chainFn;
-    }
-
-    //=> 如果没有指定 level，或者用户指定的 level 大于当前 level 级别
-
-    // label 是 [pid:]namespace:level 的一个组合； second 放最后
-    label = '';
-    labelLen = 0;
-    labelFill = '';
-
-    if (options.calledCount === 0) { // 第一次调用
-      if (!lastEOL) { writeln(); }
-
+    if (getAttribute('tag', options)) {
       label = getLabel({
         pid: ylogProto.brush(process.pid, Tag.pid.color),
         ns: ylog.namespace,
-        level: level && levels[level].tag
+        level: flagLevel && levels[flagLevel].tag
       });
 
-      labelLen = realLen(label);
-      labelFill = new Array(labelLen + 1).join(' ');
-
-      if (attributes.tag === false) { label = labelFill; }
-    }
-
-    // 放到 options 中，方便 style 或 modifier 函数使用
-    // 还是不要放了，label 只用 core.js 内部控制，外部不要控制
-    //options.label = label;
-    //options.labelLength = labelLen;
-
-    if ((lastFlag in levels) || !FLAG.styles.length) {
-      buffer.push(argsToStr(arguments));
-    } else {
-      flag = FLAG.styles.pop();
-      buffer.push(styles[flag].apply(options, arguments));
-    }
-
-    var output = buffer.join(' '), tmp;
-
-
-    FLAG.modifiers.forEach(function(modFlag) {
-      tmp = modifiers[modFlag].post.apply(options, [output]);
-      if (typeof tmp !== 'undefined') {
-        output = tmp;
+      if (label) {
+        if (ylog.namespace && Tag.ns.show) {
+          label = h.repeat(getAttribute('nsPadChar', options), getAttribute('nsPad', options)) + label;
+        }
+        label += ' ';
       }
-    });
 
-    // default use markdown
-    if (attributes.md !== false) { output = md(output); }
-
-    // 在同一行上做第 2+ 次输出，要在前面加个空格
-    if (options.calledCount > 0) {
-      output = ' ' + output;
+      var labelArgs = getAttribute('label', options);
+      if (labelArgs && typeof labelArgs[0] === 'string') {
+        label += h.align.apply(h, labelArgs) + ' ';
+      }
     }
+    label = h.repeat(getAttribute('padChar', options), getAttribute('pad', options)) + label;
 
-    // 如果 attributes 中有设置 no.ln 或 no.eol，则表示下次不要输出换行符了
-    lastEOL = attributes.ln === false || attributes.eol === false;
+    options.label = label;
+    options.labelLength = chalk.stripColor(label).length;
 
-    if (label && output) {
-      var outputPad = ylog.prefixLabelEachLine ? label : labelFill;
-      output = (label + output).replace(/\n(?=[^\n]+)/g, function(raw) {
-        return raw + outputPad;
-      });
-    }
-
-    var eventKey = [
-      chalk.stripColor(ylog.namespace) || '',
-      level || ''
-    ].join('.').replace(/^\.|\.$/g, '');
-
-    // 加个前缀，因为如果没加，且 eventKey === 'error' 时，此处会报错
-    eve.emit('sys.' + eventKey, output);
-
-    write(output);
-
-    options.calledCount++;
+    write(label); // label 一定要输出来
   }
 
-  return chainFn;
+  // 最后一个 flag 肯定要单独处理
+  if (lastFlag === h.last(flagStyles)) { flagStyles.pop(); }
+
+  for (i = 0; i < flagStyles.length; i++) {
+    buffer.push(getFnResult(styles[flagStyles[i]], [], options));
+  }
+
+  // 运行最后一个 flag，它是可能带有参数的
+  if (lastFlag in levels) {
+    buffer.push(argsToStr(arguments));
+  } else if (lastFlag in styles) {
+    buffer.push(getFnResult(styles[lastFlag], arguments, options));
+  }
+
+  // 没有东西可输出，直接返回
+  if (!label && !buffer.length) { return rtn; }
+
+
+  // 开始处理输出（如果上一个带有换行，下次输出就不用加空格了
+  var output = '', reLastEOL = /\n$/, joinGlue = '';
+  for (i = 0; i < buffer.length; i++) {
+    output += joinGlue + buffer[i];
+    joinGlue = reLastEOL.test(buffer[i]) ? '' : ' ';
+  }
+
+  // markdown
+  if (getAttribute('md', options)) { output = md(output); }
+
+  var eol = getAttribute('eol', options);
+  output += h.repeat(os.EOL, eol - 1); // 留一个到最前面输出
+
+  // 如果 attributes 中有设置了 no.eol，则表示下次不要输出换行符了
+  lastEOL = eol < 1;
+
+  // 设置颜色
+  var color = getAttribute('color', options);
+  if (color === false) {
+    output = chalk.stripColor(output);
+  } else if (typeof color === 'string') {
+    output = ylogProto.brush(output, color);
+  }
+
+  // 在同一行上做第 2+ 次输出，要在前面加个空格（在设置了颜色之后，不想要这个 ' ' 也带有颜色）
+  if (options.calledCount > 0 && !options.ln) { output = ' ' + output; }
+
+  // wrap output
+  var wrap = getAttribute('wrap', options);
+  output = ylogProto.computeWrap(wrap, output, options.labelLength);
+
+  // prefix output
+  if (options.label && output) {
+    var prefix = getAttribute('prefix', options);
+    var outputPad = prefix ? options.label : h.repeat(' ', options.labelLength);
+
+    // 上次输出了换行，则此行默认就得带上前缀
+    output = ((options.ln ? outputPad : '') + output).replace(/\n(?=[^\n]+)/g, function(raw) {
+      return raw + outputPad;
+    });
+  }
+
+  eve.emit([chalk.stripColor(ylog.namespace) || '', flagLevel || ''].join('.'), output);
+
+  write(output);
+
+  options.calledCount++;
+  options.ln = reLastEOL.test(output); // 判断最后一个字符是不是换行，如果是，第二次输出的时候不需要带 ' '
+  return rtn;
 }
 
 
 /**
- * 分析 flags
- * @param {Array} flags
- * @returns {{FLAG: {levels: Array, modifiers: Array, styles: Array}, lastFlag: String, attributes: {}}}
+ * 对 levels 排序的一个帮助函数
+ * @param {String} a
+ * @param {String} b
+ * @returns {number}
  */
-function parseFlags(flags) {
-  var i, flag, noFlag;
-
-  var FLAG = { levels: [], modifiers: [], styles: [] };
-  var attributes = {}, lastFlag;
-
-  for (i = 0; i < flags.length; i++) {
-    flag = flags[i];
-    if (flag === 'no') {
-      noFlag = 'no' + flags[i + 1];
-      if (noFlag in modifiers) {
-        i++;
-        flag = noFlag;
-      } else { // 忽略这个 no 属性
-        continue;
-      }
-    }
-
-    /* jshint ignore:start */
-    Object.keys(FLAG).forEach(function (key) {
-      if (flag in ylogProto[key]) {
-        FLAG[key].push(flag);
-
-        if (key === 'modifiers') {
-          if (flag.indexOf('no') === 0) {
-            attributes[flag.substr(2)] = false;
-          } else {
-            attributes[flag] = true;
-          }
-        }
-
-        lastFlag = flag; // 确保 lastFlag 一定存在
-      }
-    });
-    /* jshint ignore:end */
-  }
-
-  return {FLAG: FLAG, lastFlag: lastFlag, attributes: attributes};
-}
-
-
-// 对 levels 排序的一个帮助函数
 function sortLevels (a, b) { return levels[a].weight - levels[b].weight; }
 
 /**
@@ -396,41 +434,15 @@ function getCallLevel(levelFlags) {
   return level;
 }
 
-
 function getLabel(opts) {
-  var label = Object.keys(Tag)
+  return Object.keys(Tag)
     .filter(function(key) { return Tag[key].show && opts[key]; })
     .sort(function(k1, k2) { return Tag[k1].order - Tag[k2].order; })
     .map(function(key) {
-      return getTagLabel(key, opts[key]);
+      var cfg = Tag[key];
+      return h.align(opts[key], (cfg.len < 0 && cfg.max ? cfg.max : cfg.len), cfg.align, cfg.fill);
     }).join(' ');
-
-  if (label) {
-    label = (Tag.ns.show && opts.ns ? '   ' : '') + label + ' ';
-  }
-  return label;
 }
-
-/**
- * 根据 tag 的类型及 tag string，得到应该输出的 label
- * @param {String} type - pid, ns, level 三选一
- * @param {String} tag  - 未处理前的 tag
- * @returns {String} - 输出处理后的 tag
- */
-function getTagLabel(type, tag) {
-  var cfg = Tag[type];
-  var noColorTag = chalk.stripColor(tag);
-  var i, fill = '', len = (cfg.len < 0 && cfg.max ? cfg.max : cfg.len) - noColorTag.length;
-  if (len < 0) { return tag; }
-
-  for (i = 0; i < len; i++) { fill += cfg.fill; }
-  if (cfg.align === 'center') {
-    var mid = Math.round(len / 2);
-    return fill.substring(0, mid) + tag + fill.substr(mid);
-  }
-  return cfg.align === 'left' ? tag + fill : fill + tag;
-}
-
 
 
 /**
@@ -456,24 +468,6 @@ ylogProto.levelFlag = function(name, weight, tag) {
   appendFlag(name);
 };
 
-/**
- * 添加或修改 Modifier Flag
- *
- * @param {String} name - 修改器名称
- * @param {Function} [postFn] - 函数，其唯一的参数是当前要输出的内容
- * @param {Function} [callFn] - 函数，在此 modify 被用函数形式调用时，可能会传一些参数进来，用此 callFn 来处理这些参数
- *                              callFn 绑定在 ylog.options[flag] 对象上
- */
-ylogProto.modifierFlag = function(name, postFn, callFn) {
-  if (name.indexOf('no') === 0) {
-    var nono = name.substr(2);
-    if (!(nono in modifiers)) { ylogProto.modifierFlag(nono); }
-  }
-
-  // postFn不存在就用空函数，但 callFn 不存在在 call 内部需要利用
-  modifiers[name] = {post: postFn || noop, call: callFn};
-  appendFlag(name);
-};
 
 /**
  * 添加或修改 Style Flag
@@ -486,48 +480,19 @@ ylogProto.styleFlag = function(name, fn) {
   appendFlag(name);
 };
 
-/**
- * 指定一个默认级别，也可以是一个数组
- * @param {String|Array} levelFlags
- * @param {String} levelMode
- */
-ylogProto.setLevel = function(levelFlags, levelMode) {
-  [].concat(levelFlags).forEach(function(flag) {
-    if (!(flag in levels)) {
-      throw new Error('Level flag <' + flag + '> not exists.');
-    }
-  });
-  ylogProto.level = levelFlags;
-
-  if (levelMode) {
-    ylogProto.setLevelMode(levelMode);
-  }
-};
-
-/**
- * level 模式
- *
- * - 如果是 `'weight'`，即只会输出 weight 值 >= 当前 level 级别的日志
- * - 如果是 `'only'`，只输出 ylog.level 中指定级别的日志
- *
- * @param {String} mode
- */
-ylogProto.setLevelMode = function(mode) {
-  ylogProto.levelMode = mode === 'only' ? 'only' : 'weight';
-};
 
 
-/**
- * 是否每个换行的地方都输出 label 前缀
- * @param {Boolean} bool
- */
-ylogProto.setPrefixLabelEachLine = function(bool) {
-  ylogProto.prefixLabelEachLine = bool;
-};
+// 注入属性 flag
+appendFlag('no');
+appendFlag('attr');
+Object.keys(attributes).forEach(function(key) {
+  appendFlag(key);
+  appendFlag('no' + key);
+});
 
 
 // 总是在程序最后输出一个换行符
-process.on('exit', writeln);
+process.on('exit', function() { writeln(); });
 
 
 module.exports = makeYlog();

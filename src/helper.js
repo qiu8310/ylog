@@ -6,6 +6,12 @@
  * Licensed under the MIT license.
  */
 
+var chalk = require('chalk');
+
+function repeat(str, times) {
+  return (new Array(times + 1)).join(str);
+}
+
 module.exports = {
   // Word-wrap text to a given width, permitting ANSI color codes.
   wraptext: function(width, text) {
@@ -63,6 +69,36 @@ module.exports = {
 
     result.push(captured.join(''));
     return result.join('\n');
+  },
+
+  repeat: repeat,
+
+  /**
+   *
+   * @param {String} text
+   * @param {Number} len
+   * @param {String} align
+   * @param {String} pad
+   * @returns {*}
+   */
+  align: function(text, len, align, pad) {
+    var fill, mid;
+    pad = pad || ' ';
+    len = len - chalk.stripColor(text).length;
+    if (len > 0) {
+      fill = repeat(pad, len);
+      mid = Math.round(len / 2);
+      if (align === 'center') {
+        return fill.substring(0, mid) + text + fill.substr(mid);
+      } else {
+        return align === 'right' ? fill + text : text + fill;
+      }
+    }
+    return text;
+  },
+
+  last: function(arr) {
+    return arr[arr.length - 1];
   },
 
   ttyWidths: function() {

@@ -41,7 +41,7 @@ c.setLevelMode('weight');
 
 /********* 定义 styles *********/
 // @TODO str 可能带有样式！
-function upFirst (str) { return str[0].toUpperCase() + str.substr(1); }
+function upFirst (str) { return str ? str[0].toUpperCase() + str.substr(1) : ''; }
 function format (args) { return c.format.apply(c, args); }
 c.styleFlag('title', function() {
   return chalk.underline(upFirst(format(arguments)));
@@ -50,11 +50,12 @@ c.styleFlag('subtitle', function() {
   return chalk.white.bold(upFirst(format(arguments)));
 });
 
+c.styleFlag('ln', function() { return os.EOL + format(arguments); });
 c.styleFlag('log', function() { return format(arguments); });
 c.styleFlag('write', function() { return format(arguments); });
 c.styleFlag('writeOk', function() { return chalk.green('>> ') + format(arguments); });
 c.styleFlag('writeError', function() { return chalk.red('>> ') + format(arguments); });
-
+c.styleFlag('align', h.align);
 
 // Pretty-format a word list.
 function wordlist(arr) {
@@ -75,68 +76,24 @@ c.styleFlag('writeFlag', function(obj, prefix) {
 });
 
 
-/********* 定义 modifies *********/
-
-//= 系统特殊的 flags
-c.modifierFlag('no'); // no 是个很好的 flag，自动与它的下一个调用的 flag 组合，如果不存在则忽略此 no
-
-//= 系统内部处理
-c.modifierFlag('nomd');
-c.modifierFlag('notag');
-
-function rightTrimEOL (str) { return str.replace(/([\r]?\n)+$/, ''); }
-function rightAddEOL  (str) { return str + os.EOL; }
-
-c.modifierFlag('ln', rightAddEOL);
-c.modifierFlag('eol', rightAddEOL);
-c.modifierFlag('noln', rightTrimEOL);
-c.modifierFlag('noeol', rightTrimEOL);
-c.modifierFlag('color',
-  function(str) {
-    return c.brush(str, this.color.style);
-  },
-  function(style) {
-    this.style = style;
-  }
-);
-c.modifierFlag('nocolor', function(str) { return chalk.stripColor(str); });
-c.modifierFlag('wrap',
-  function(str) {
-    return h.wraptext(this.wrap.len, str);
-  },
-  function(len) {
-    if (/(\.\d+|%)$/.test(len)) {
-      len = parseFloat(len);
-      if (len > 1) {
-        len = len / 100;
-      }
-      len = Math.round(h.ttyWidths() * len);
-    }
-    this.len = len;
-  }
-);
-
-
-
-
-
 //
 //c = c('dx');
+//c.enabled = true;
 //
 ////c.Tag.ns.show = false;
 //c.setLevel('silly');
-//c.silly.no.md('use __word__ to get underlined word:').md('__silly word__');
-//c.verbose.no.md('use &verbose& to get green word:').md('&verbose&');
-//c.debug.no.md('use @debug@ to get blue word:').md('@debug@ words after @ ... @');
-//c.info('use ! to get yellow %o word: !info!', {a: true, b: null});
+//c.no.md.silly('use __word__ to get underlined word:').md.log('__silly word__');
+//c.attr({md: false}).verbose('use &verbose& to get green word:').attr({md: true}).log('&verbose&');
+//c.no.md.debug('use @debug@ to get blue word:').md.log('@debug@ words after @ ... @');
+//c.info('use ! to get yellow %o word: !info!', {a: true, b: null}, {a: true, b: 123});
 //c.warn('use _ to get italic word: _warn_ *(not work on mac)*');
 //c.ok('use * to get gray word:  *success*');
 //c.error('use ** to get bold word: **error** ');
-//c.fatal.no.md('use no.md to disable markdown: **fatal**');
-//c.ok.no.color.ln.ln('no color, eol');
+//c.no.md.fatal('use no.md to disable markdown: **fatal**');
+//c.prefix.ln.ln.ok('no &color&, eol');
 //
 //c.write('STYLES:');
-//c.title.ln('this is title');
+//c.title('this is title');
 //c.subtitle('subtitle');
 //
 //c.ok({a: 1, b: true, c: null, d: '123', e: /ab/, f: new Date()});
@@ -144,11 +101,11 @@ c.modifierFlag('wrap',
 //c.wrap(3).ok('are you ok? are you ok?');
 //
 //c.error.writeFlag({a: true, b: 'bb'});
-//c.info.writeOk.no.tag('write to xxx');
+//c.info.no.tag.writeOk('write to xxx');
 //
 //c.color('green.bold.underline').log('are you ok').ln();
 //
-//c.ok('!you should manual output a end EOL in the last log!');
+//c.ok('!you should use ylog!');
 
 //console.log(c.levels);
 
