@@ -300,17 +300,19 @@ function call() {
       }
     }
 
-    if (attr('time')) {
-      label += h.align(getOutputTime(currTime), 5, 'right') + ' ';
-    }
-
     label = h.repeat(attr('padChar'), attr('pad')) + label;
 
     options.label = label;
     options.labelLength = chalk.stripColor(label).length;
-    lastTime = currTime;
+
 
     write(label); // label 一定要输出来
+
+    // time 标签不要放 label 中，因为 label 可能在第行都显示，而 time 只需要在第一次输出时显示即可
+    if (attr('time')) {
+      write(getOutputTime(currTime) + ' ');
+    }
+    lastTime = currTime;
   }
 
   // 最后一个 flag 肯定要单独处理
