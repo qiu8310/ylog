@@ -115,12 +115,13 @@ var proto = {
     '__': 'underline',
     '_': 'italic',
     '!': 'yellow',
+    '#': 'red',
     '@': 'blue',
     '&': 'green'
   },
 
   // 配合 markdown 用的
-  markdownRegExp: /(\s|^)(\*\*|__|\*|_|!|@|&|`)([^\*_\s]|[^\*_\s][\s\S]*?[^\*_\s])\2(?=[\s,.!?]|$)/g,
+  markdownRegExp: /(\s|^)(\*\*|__|\*|_|!|@|&|`|#)([^\*_\s]|[^\*_\s][\s\S]*?[^\*_\s])\2(?=[\s,.!?]|$)/g,
 
 
   inspect: function(v, colors, depth) {
