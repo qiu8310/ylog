@@ -395,7 +395,7 @@ function getOutputTime(currTime) {
       break;
     }
   }
-  return ylogProto.brush('(' + ms(diff) + ')', color);
+  return ylogProto.brush(h.align('[' + ms(diff) + ']', 6, 'right'), color);
 }
 
 
