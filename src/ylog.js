@@ -13,15 +13,6 @@ var c = require('./core'),
   chalk = c.chalk;
 
 
-//****************  添加自定义的库  **************//
-
-//console.log(chalk.blue('ℹ'));
-//console.log(chalk.red('✗ ✘ ☒'));
-//console.log(chalk.green('✓ ✔ ☑'));
-//console.log(chalk.green(':u7121:'));
-//console.log(chalk.yellow.bold('! ︕ ﹗ ！⚠  '));
-
-
 /********* 定义 levels *********/
 c.levelFlag('silly',   -Infinity, chalk.bold.gray('[S]'));
 c.levelFlag('verbose', 1000, chalk.bold.blue('[V]'));
@@ -34,18 +25,22 @@ c.levelFlag('fatal',   7000, chalk.bold.red('✗✗✗'));
 c.levelFlag('silent',  Infinity, ' ');
 
 
-// 设置默认的属性
-c.setLevel('info');
-c.setLevelMode('weight');
+// 设置 level 默认的属性
+c.setLevel('info', 'weight');
 
 
 /********* 定义 styles *********/
-// @TODO str 可能带有样式！
-function upFirst (str) { return str ? str[0].toUpperCase() + str.substr(1) : ''; }
+
+var upFirstRe = /^((?:\x1B\[\d+m)*)(\w)/,
+  upFirstCb = function (raw, o, t) { return o + t.toUpperCase(); };
+
+function upFirst (str) { return str.replace(upFirstRe, upFirstCb); }
 function format (args) { return c.format.apply(c, args); }
+
 c.styleFlag('title', function() {
   return chalk.underline(upFirst(format(arguments)));
 });
+
 c.styleFlag('subtitle', function() {
   return chalk.white.bold(upFirst(format(arguments)));
 });
@@ -74,6 +69,8 @@ c.styleFlag('writeFlag', function(obj, prefix) {
   }
   return (prefix || 'Flags') + ': ' + (wl || chalk.cyan('(none)'));
 });
+
+
 
 
 //

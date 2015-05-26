@@ -193,11 +193,23 @@ var proto = {
     return brusher(text);
   },
 
+  /**
+   * 得到一个进度条
+   *
+   * 使用懒加载（require），使你在如果不需要进度条的情况下就不会去加载那些进度条相关的库
+   *
+   * @param {String} name
+   * @param {Object} [opts]
+   * @returns {*}
+   */
+  progress: function(name, opts) {
+    var P = require('./progress');
+    return new P(name, opts);
+  },
 
   // 所有的输出都是走此函数
   output: function(str) { process.stdout.write(str); }
 };
-
 
 
 /**

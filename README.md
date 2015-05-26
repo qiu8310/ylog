@@ -4,14 +4,11 @@
 [![Dependency Status][daviddm-url]][daviddm-image]
 [![Code Climate][climate-image]][climate-url]
 [![Coverage Status][coveralls-image]][coveralls-url]
-
 <!--
 [![GitHub version][git-tag-image]][project-url]
 -->
 
-
 Why another logger? That's a good question!
-
 
 __ylog 的特点__
 
@@ -23,7 +20,7 @@ __ylog 的特点__
   - 支持 显示执行时间
   - 支持 显示进程 ID
   - 支持 事件监听
-  - 支持 进度条 输出 (使用  ) @TODO
+  - 支持 进度条 输出 (使用了 [gauge](https://github.com/iarna/gauge) 和 [are-we-there-yet](https://www.npmjs.com/package/are-we-there-yet)  )
   
 
 ## Usage
@@ -32,6 +29,8 @@ __ylog 的特点__
 
 
 #### 默认支持的 levels
+![styles](./res/levels.png)
+<!--
 ```js
 ylog.silly("silly") 
 // => [S] silly
@@ -60,6 +59,7 @@ ylog.fatal("fatal")
 ylog.silent("silent") 
 // => (nothing)
 ``` 
+-->
 
 ### 设置 level 显示级别：`ylog.setLevel(levels, mode)`
 
@@ -180,6 +180,44 @@ logger.info('info');  // => 不会触发上面的监听
 
 ```
 
+### 使用进度条
+
+```js
+var ylog = require('ylog');
+var fs = require('fs');
+
+var p = ylog.progress('progress', {theme: 'ascii'});
+
+var basicJob = p.addJob('job 1', 1000, 2);
+basicJob.complete(10);
+
+//basicJob progress
+var sid = setInterval(function() {
+  basicJob.complete(100);
+}, 500);
+
+// streamJob progress
+fs.stat(__filename, function(err, stats) {
+  if (err) { throw err; }
+
+  var streamJob = p.addJob('job 2', stats.size, true);
+
+  setTimeout(function() {
+    fs.createReadStream(__filename).pipe(streamJob).on('data', function() {
+      // do your thing
+    });
+  }, 200)
+
+});
+
+
+p.on('finished', function(name) {
+  p.hide();
+  console.log('finished ' + name);
+  clearInterval(sid);
+});
+
+```
 
 
 ## History
