@@ -12,7 +12,6 @@ var ylog = require('../'),
 
 ylog.attributes.pad = 4;
 
-
 ylog.ln.writeFlag(ylog.markdowns, 'Markdown map').ln();
 
 Object.keys(ylog.markdowns).forEach(function(format) {

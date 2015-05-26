@@ -28,6 +28,7 @@ var desc = {
   label: 'print a custom label just like namespace or level',
   prefix: 'prefix the tag to each line break, otherwise it will ' +
   'just prefix an empty spaces who\'s length equal to the tag',
+  time: 'show execute diff time',
   wrap: 'wrap the output text'
 };
 

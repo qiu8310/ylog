@@ -50,6 +50,9 @@ var proto = {
     //wrap: function(val) {}
   },
 
+  timeLevelColors: [[40, 'gray'], [65, 'yellow'], [Infinity, 'red']],
+
+
   /**
    * 计算 wrap 的长度
    */

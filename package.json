@@ -26,7 +26,8 @@
     "event"
   ],
   "dependencies": {
-    "chalk": "^1.0.0"
+    "chalk": "^1.0.0",
+    "ms": "^0.7.1"
   },
   "devDependencies": {
     "coveralls": "^2.11.1",

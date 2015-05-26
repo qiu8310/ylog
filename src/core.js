@@ -9,7 +9,8 @@
 var EventEmitter = require('events').EventEmitter,
   os = require('os');
 
-var chalk = require('chalk');
+var chalk = require('chalk'),
+  ms = require('ms');
 
 var ns = require('./ns'),
   h = require('./helper');
@@ -17,25 +18,6 @@ var ns = require('./ns'),
 
 var eve = new EventEmitter();
 var defaultYlog, ylogProtoKeys;
-
-
-/*
-
- 特点：
-
- - 支持 npmlog 的 level 级别
- - 支持 debug 的环境变量设置
- - 支持 debug 的分类输出 @TODO
- - 支持 进度条 输出 @TODO
- - 支持 事件监听 @TODO
- - 支持 显示执行时间 @TODO
- - 支持 显示进程 ID @TODO
- - 支持 grunt log 的丰富样式
- - 支持 prettyJson
- - 支持 error stack
- - 支持指定每行的输出宽度（使用 wrap，支持使用指定的整数宽度、百分比或小数，如 `ylog.wrap(0.8).info('...')`）
- - 支持简单的类似于 markdown 的语法
- */
 
 
 // 用于生成链式结构的 prototype
@@ -259,6 +241,8 @@ function getFnResult(fn, args, ctx) {
 }
 
 var lastEOL = true; // 记录是否需要输出换行符（第一次输出不需要换行）
+var lastTime = Date.now();
+
 /**
  * 函数形式的链式调用会执行此函数
  */
@@ -267,6 +251,7 @@ function call() {
     options = this.options,
     ylog = this.ylog;
 
+  var attr = function(flag) { return getAttribute(flag, options); };
   var rtn = chain([], options, ylog);
 
   // 如果 disabled， 则直接返回即可
@@ -290,11 +275,12 @@ function call() {
   if (!flagStyles.length && !flagLevels.length) { return rtn; }
 
   // 根据 attributes 输出 styles
-  var label = '', buffer = [], lastFlag = h.last(flags), i;
+  var label = '', buffer = [], lastFlag = h.last(flags), i, currTime;
   if (options.calledCount === 0) {
     if (!lastEOL) { writeln(); }
+    currTime = Date.now();
 
-    if (getAttribute('tag', options)) {
+    if (attr('tag')) {
       label = getLabel({
         pid: ylogProto.brush(process.pid, Tag.pid.color),
         ns: ylog.namespace,
@@ -303,20 +289,26 @@ function call() {
 
       if (label) {
         if (ylog.namespace && Tag.ns.show) {
-          label = h.repeat(getAttribute('nsPadChar', options), getAttribute('nsPad', options)) + label;
+          label = h.repeat(attr('nsPadChar'), attr('nsPad')) + label;
         }
         label += ' ';
       }
 
-      var labelArgs = getAttribute('label', options);
+      var labelArgs = attr('label');
       if (labelArgs && typeof labelArgs[0] === 'string') {
         label += h.align.apply(h, labelArgs) + ' ';
       }
     }
-    label = h.repeat(getAttribute('padChar', options), getAttribute('pad', options)) + label;
+
+    if (attr('time')) {
+      label += h.align(getOutputTime(currTime), 5, 'right') + ' ';
+    }
+
+    label = h.repeat(attr('padChar'), attr('pad')) + label;
 
     options.label = label;
     options.labelLength = chalk.stripColor(label).length;
+    lastTime = currTime;
 
     write(label); // label 一定要输出来
   }
@@ -347,16 +339,16 @@ function call() {
   }
 
   // markdown
-  if (getAttribute('md', options)) { output = md(output); }
+  if (attr('md')) { output = md(output); }
 
-  var eol = getAttribute('eol', options);
+  var eol = attr('eol');
   output += h.repeat(os.EOL, eol - 1); // 留一个到最前面输出
 
-  // 如果 attributes 中有设置了 no.eol，则表示下次不要输出换行符了
+  // 如果 attributes 中有设置了 no.eol，则表示不要输出换行符了
   lastEOL = eol < 1;
 
   // 设置颜色
-  var color = getAttribute('color', options);
+  var color = attr('color');
   if (color === false) {
     output = chalk.stripColor(output);
   } else if (typeof color === 'string') {
@@ -367,16 +359,16 @@ function call() {
   if (options.calledCount > 0 && !options.ln) { output = ' ' + output; }
 
   // wrap output
-  var wrap = getAttribute('wrap', options);
+  var wrap = attr('wrap');
   output = ylogProto.computeWrap(wrap, output, options.labelLength);
 
   // prefix output
   if (options.label && output) {
-    var prefix = getAttribute('prefix', options);
+    var prefix = attr('prefix');
     var outputPad = prefix ? options.label : h.repeat(' ', options.labelLength);
 
     // 上次输出了换行，则此行默认就得带上前缀
-    output = ((options.ln ? outputPad : '') + output).replace(/\n(?=[^\n]+)/g, function(raw) {
+    output = ((options.ln ? outputPad : '') + output).replace(/\n/g, function(raw) {
       return raw + outputPad;
     });
   }
@@ -388,6 +380,20 @@ function call() {
   options.calledCount++;
   options.ln = reLastEOL.test(output); // 判断最后一个字符是不是换行，如果是，第二次输出的时候不需要带 ' '
   return rtn;
+}
+
+
+function getOutputTime(currTime) {
+  var diff = currTime - lastTime;
+  var levels = ylogProto.timeLevelColors;
+  var color;
+  for (var i = 0; i < levels.length; i++) {
+    if (diff < levels[i][0]) {
+      color = levels[i][1];
+      break;
+    }
+  }
+  return ylogProto.brush('(' + ms(diff) + ')', color);
 }
 
 
