@@ -1,7 +1,7 @@
 {
   "name": "ylog",
   "description": "Why another logger? That's a good question!",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "homepage": "https://github.com/qiu8310/ylog",
   "bugs": "https://github.com/qiu8310/ylog/issues",
   "license": "MIT",
