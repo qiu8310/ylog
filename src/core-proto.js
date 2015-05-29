@@ -21,10 +21,11 @@ var proto = {
 
   // 全局配置的属性
   attributes: {
+    ln: 0,
     md: true,     // 是否使用类 markdown 语法
     pad: 0,       // 每输出一行前的 padChar 字符个数
     padChar: ' ',
-    nsPad: 3,     // 在输出 namespace 之前，输出 nsPad 个 nsPadChar 字符在最左侧
+    nsPad: 0,     // 在输出 namespace 之前，输出 nsPad 个 nsPadChar 字符在最左侧
     nsPadChar: ' ',
     color: true,  // 是否启用颜色
     tag: true,    // 是否显示左侧 pid, ns, level 这个标签
@@ -36,6 +37,7 @@ var proto = {
   },
 
   attributeTransforms: {
+    ln: Number,
     md: Boolean,
     pad: Number,
     padChar: String,
@@ -51,6 +53,7 @@ var proto = {
   },
 
   timeLevelColors: [[40, 'gray'], [65, 'yellow'], [Infinity, 'red']],
+  timeLabelLength: 7,
 
 
   /**
@@ -118,12 +121,14 @@ var proto = {
     '#': 'red',
     '@': 'blue',
     '&': 'green',
-    '^': 'cyan'
+    '^': 'cyan',
+    '~': 'magenta'
   },
 
   // 配合 markdown 用的
-  markdownRegExp: /(\s|^)(\*\*|__|\*|_|!|@|&|`|#|\^)([^\*_\s]|[^\*_\s][\s\S]*?[^\*_\s])\2(?=[\s,.!?]|$)/g,
-
+  /* jshint ignore:start */
+  markdownRegExp: /(^|\s|\u001b\[\d+m)(\*\*|__|\*|_|!|@|&|`|#|\^|~)([^\*_\s]|[^\*_\s][\s\S]*?[^\*_\s])\2(?=[\s,.!?]|(?:\u001b\[\d+m)|$)/g,
+  /* jshint ignore:end */
 
   inspect: function(v, colors, depth) {
     return util.inspect(v, {colors: colors, depth: depth || 2}).replace(/\s*\n\s*/g, ' ');
@@ -174,7 +179,8 @@ var proto = {
    * @example
    * namespace 的标签的颜色就是从这里取的
    */
-  colors: ['cyan', 'green', 'yellow', 'blue', 'magenta', 'gray'],
+  colors: ['cyan', 'green', 'yellow', 'blue', 'magenta', 'gray',
+    'cyan.bold', 'green.bold', 'yellow.bold', 'blue.bold', 'magenta.bold', 'gray.bold'],
 
 
   /**
@@ -208,6 +214,8 @@ var proto = {
     var P = require('./progress');
     return new P(name, opts);
   },
+
+  line: function() { proto.output(os.EOL); },
 
   // 所有的输出都是走此函数
   output: function(str) { process.stdout.write(str); }

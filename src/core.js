@@ -264,15 +264,24 @@ function call() {
     flagLevel;
 
   // 如果上次使用了 level，则把它导入到此次的 call 中
-  if (options.level) { flagLevels.push(options.level); }
+  if (options.levels) { [].push.apply(flagLevels, options.levels); }
   flagLevel = getCallLevel(flagLevels);
-  options.level = flagLevel; // 保存当前 level
-
+  options.levels = flagLevels; // 保存当前 levels
   // 用户指定了 level，但没有用户要的 level；或者指定的 level 就是 silent
   if (flagLevels.length && !flagLevel || flagLevel === 'silent') { return rtn; }
 
+  // 输出 ln 指定的换行
+  var lines = attr('ln');
+  if (lines > 0) {
+    write(h.repeat(os.EOL, lines));
+    if (options.labelLength) {
+      write(h.repeat(' ', options.labelLength - 1));
+    }
+    delete options.attributes.ln;
+  }
+
   // 没有输出，也直接返回
-  if (!flagStyles.length && !flagLevels.length) { return rtn; }
+  if (!flagLevels.length && !flagStyles.length) { return rtn; }
 
   // 根据 attributes 输出 styles
   var label = '', buffer = [], lastFlag = h.last(flags), i, currTime;
@@ -307,12 +316,6 @@ function call() {
 
 
     write(label); // label 一定要输出来
-
-    // time 标签不要放 label 中，因为 label 可能在第行都显示，而 time 只需要在第一次输出时显示即可
-    if (attr('time')) {
-      write(getOutputTime(currTime) + ' ');
-    }
-    lastTime = currTime;
   }
 
   // 最后一个 flag 肯定要单独处理
@@ -357,8 +360,18 @@ function call() {
     output = ylogProto.brush(output, color);
   }
 
-  // 在同一行上做第 2+ 次输出，要在前面加个空格（在设置了颜色之后，不想要这个 ' ' 也带有颜色）
-  if (options.calledCount > 0 && !options.ln) { output = ' ' + output; }
+  if (!options.calledCount) {
+    if (attr('time')) {
+      // time 标签不要放 label 中，因为 label 可能在第行都显示，而 time 只需要在第一次输出时显示即可
+      output = getOutputTime(currTime) + ' ' + output;
+    }
+    lastTime = currTime;
+  } else {
+    // 在同一行上做第 2+ 次输出，要在前面加个空格（在设置了颜色之后，不想要这个 ' ' 也带有颜色）
+    if (!options.ln) {
+      output = ' ' + output;
+    }
+  }
 
   // wrap output
   var wrap = attr('wrap');
@@ -395,7 +408,7 @@ function getOutputTime(currTime) {
       break;
     }
   }
-  return ylogProto.brush(h.align('[' + ms(diff) + ']', 6, 'right'), color);
+  return ylogProto.brush('[' + h.align(ms(diff), ylogProto.timeLabelLength - 2, 'center') + ']', color);
 }
 
 

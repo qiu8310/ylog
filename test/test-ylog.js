@@ -61,7 +61,7 @@ function testOut(fn, strOrRe, opts) {
   var res = out;
   out = '';
 
-  if (strOrRe) {
+  if (typeof strOrRe !== 'undefined') {
     match(res, strOrRe, opts.useIndexOf);
   }
 
@@ -165,7 +165,7 @@ describe('ylog', function () {
       testOut(function() {
         y.log('aa');
       });
-      out2.should.eql('\n   ' + chalk.red('hah') + ' aa');
+      out2.should.eql('\n' + chalk.red('hah') + ' aa');
     });
 
   });
@@ -264,6 +264,10 @@ describe('ylog', function () {
 
     it('md', function() {
       testOut(function() {
+        ylog.md.log(chalk.underline('**xx**'));
+      }, '\nxx', {trim: false});
+
+      testOut(function() {
         ylog.md.log('**xx** yy')
       }, 'xx yy');
 
@@ -311,15 +315,15 @@ describe('ylog', function () {
 
     it('eol', function() {
       testOut(function() {
-        ylog.eol.ln('you');
+        ylog.eol.ln.log('you');
       }, '\n\nyou\n', {trim: false});
 
       testOut(function() {
-        ylog.eol('xx').ln('you');
+        ylog.eol('xx').ln.log('you');
       }, '\n\nyou', {trim: false});
 
       testOut(function() {
-        ylog.eol(3).ln('you');
+        ylog.eol(3).ln.log('you');
       }, '\n\nyou\n\n', {trim: false});
 
       testOut(function() {
@@ -390,7 +394,7 @@ describe('ylog', function () {
   context('style', function() {
     it('ln', function() {
       testOut(function() {
-        ylog.ln.ln('abc');
+        ylog.ln.ln.log('abc');
       }, '\n\n\nabc', {trim: false})
     });
     it('log', function() {
@@ -501,6 +505,12 @@ describe('ylog', function () {
   });
 
   context('config', function() {
+    before(function() {
+      ylog.attributes.nsPad = 3;
+    });
+    after(function() {
+      ylog.attributes.nsPad = 0;
+    });
     it('disable some markdown', function() {
       ylog.markdowns['**'] = false;
       testOut(function() {
@@ -578,12 +588,6 @@ describe('ylog', function () {
     });
   });
 
-
-  context('label group', function() {
-
-  });
-
-
   context('event', function() {
     it('should emit sys.[ns].[level]', function() {
       var a = 0;
@@ -602,6 +606,17 @@ describe('ylog', function () {
       a.should.eql(2);
 
     });
+  });
+
+  context('chain', function() {
+
+    it('chain remain first level info', function() {
+      ylog.setLevel('debug');
+      testOut(function() {
+        ylog.verbose('xx').ln.log('yy');
+      }, '', {trim: false, useIndexOf: false});
+    });
+
   });
 
 });

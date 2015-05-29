@@ -18,6 +18,7 @@ ylog.ln.ln.title('Attributes: ').ln.ln.wrap(60).log(attributes).ln();
 
 
 var desc = {
+  ln: 'output line break character',
   md: 'enable markdown',
   pad: 'length of `padChar` before each line',
   padChar: 'specify the character for `pad`',
@@ -36,4 +37,8 @@ for (var key in desc) {
   var c = ylog.label(chalk.white.bold(key + ': '), 11, 'right').color('cyan').wrap(70).log(desc[key]);
 }
 
+ylog.ln(5).ok('ab').ln.log('cd');
+ylog.ok('cd').ln.log('ef');
 ylog.ln();
+
+

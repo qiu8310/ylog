@@ -6,8 +6,6 @@
  * Licensed under the MIT license.
  */
 
-var os = require('os');
-
 var c = require('./core'),
   h = require('./helper'),
   chalk = c.chalk;
@@ -18,8 +16,8 @@ c.levelFlag('silly',   -Infinity, chalk.bold.gray('[S]'));
 c.levelFlag('verbose', 1000, chalk.bold.blue('[V]'));
 c.levelFlag('debug',   2000, chalk.bold.magenta('[D]'));
 c.levelFlag('info',    3000, chalk.bold.cyan('ℹ'));
-c.levelFlag('warn',    4000, chalk.bold.yellow('!'));
-c.levelFlag('ok',      5000, chalk.bold.green('✓'));
+c.levelFlag('ok',      4000, chalk.bold.green('✓'));
+c.levelFlag('warn',    5000, chalk.bold.yellow('!'));
 c.levelFlag('error',   6000, chalk.bold.red('✗'));
 c.levelFlag('fatal',   7000, chalk.bold.red('✗✗✗'));
 c.levelFlag('silent',  Infinity, ' ');
@@ -45,11 +43,11 @@ c.styleFlag('subtitle', function() {
   return chalk.white.bold(upFirst(format(arguments)));
 });
 
-c.styleFlag('ln', function() { return os.EOL + format(arguments); });
+//c.styleFlag('ln', function() { return os.EOL + format(arguments); }); => 转移到 attributes 中去
 c.styleFlag('log', function() { return format(arguments); });
 c.styleFlag('write', function() { return format(arguments); });
-c.styleFlag('writeOk', function() { return chalk.green('>> ') + format(arguments); });
-c.styleFlag('writeError', function() { return chalk.red('>> ') + format(arguments); });
+c.styleFlag('writeOk', function() { return chalk.green('>>') + ' ' + format(arguments); });
+c.styleFlag('writeError', function() { return chalk.red('>>') + ' ' + format(arguments); });
 c.styleFlag('align', h.align);
 
 // Pretty-format a word list.
