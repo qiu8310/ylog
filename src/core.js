@@ -17,7 +17,7 @@ var ns = require('./ns'),
 
 
 var eve = new EventEmitter();
-var defaultYlog, ylogProtoKeys;
+var ylogProtoKeys;
 
 
 // 用于生成链式结构的 prototype
@@ -95,10 +95,14 @@ function appendFlag(flag) {
 }
 
 // ylog generator
+var ylogMap = {};
 function makeYlog(namespace, enabled) {
+  var cacheKey = namespace || 'default';
+  if (cacheKey in ylogMap) { return ylogMap[cacheKey]; }
+
   // 没有指定 namespace 则表示默认使用 defaultYlog
   // 只备份这个 default，其它的 namespace 没必要备份，因为一般像 debug 一样，只会调用一次
-  if (!namespace && defaultYlog) { return defaultYlog; }
+  //if (!namespace && defaultYlog) { return defaultYlog; }
 
   var fn = function ylog(namespace) {
     return makeYlog(namespace, ns.enabled(namespace));
@@ -107,7 +111,6 @@ function makeYlog(namespace, enabled) {
   if (!namespace) {
     fn.namespace = '';
     fn.enabled = true;
-    defaultYlog = fn;
   } else {
     // 添加颜色值
     fn.namespace = chalk.hasColor(namespace) ? namespace : randomBrush(namespace, 'ns');
@@ -117,6 +120,8 @@ function makeYlog(namespace, enabled) {
   /* jshint ignore:start */
   fn.__proto__ = ylogProto;
   /* jshint ignore:end */
+
+  ylogMap[cacheKey] = fn;
 
   return fn;
 }
