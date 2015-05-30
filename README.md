@@ -10,7 +10,11 @@
 
 Why another logger? That's a good question!
 
-__ylog 的特点__
+__Example:__
+
+![styles](./res/start.png)
+
+__ylog 的特点:__
 
   - 支持 [npmlog](https://github.com/npm/npmlog#loglevelprefix-message-) 的 level 级别
   - 支持 [debug][debug] 的多模块控制
@@ -25,52 +29,25 @@ __ylog 的特点__
 
 ## Usage
 
-### 使用 Levels
+### 使用 levels
 
-
-#### 默认支持的 levels
 ![styles](./res/levels.png)
-<!--
-```js
-ylog.silly("silly") 
-// => [S] silly
 
-ylog.verbose("verbose") 
-// => [V] verbose
 
-ylog.debug("debug") 
-// => [D] debug
+### 设置 level 显示级别
 
-ylog.info("info") 
-//=> ℹ  info
-
-ylog.warn("warn") 
-// => !  warn
-
-ylog.ok("ok")
-// => ✓  ok
-
-ylog.error("error") 
-// => ✗  error
-
-ylog.fatal("fatal") 
-// => ✗✗✗ fatal
-
-ylog.silent("silent") 
-// => (nothing)
-``` 
--->
-
-### 设置 level 显示级别：`ylog.setLevel(levels, mode)`
+`ylog.setLevel(levels, mode)`
 
 `levels` 可以是单个 level，也可以是一个 level 数组
 `mode` 可以是 `'only'` 或 `'weight'`
 
-  - `only mode`: 表示只输出 levels 中指定的级别，其它级别不输出
-  - `weight mode`: 表示只输出权重__大于等于__所有指定 levels 中的最低权重的级别
+  - `only` mode: 表示只输出 levels 中指定的级别，其它级别不输出
+  - `weight` mode: 表示只输出权重__大于等于__所有指定 levels 中的最低权重的级别（默认是此值）
 
    
-### 自定义新的 level，或修改现有 level： `ylog.levelFlag(name, weight, tag)`
+### 自定义新的 level，或修改现有 level
+ 
+`ylog.levelFlag(name, weight, tag)`
 
 ```js
 
@@ -87,25 +64,16 @@ c.levelFlag('ok2', 5500, chalk.bold.green('✓'));
 
 很简单，像使用 [debug][debug] 一样，只是环境变量名从 `DEBUG` 变成了 `YLOG`
 
-```js
-var ns1 = ylog('ns_1');
-var ns2 = ylog('ns_2');
-var ns3 = ylog('ns_3');
-var ns4 = ylog('ns_4');
+![styles](./res/ns.png)
 
-ns1.ok('ok');
-ns2.write('write');
-ns3.error('error');
-ns4.title('title');
+### 使用丰富的样式
 
-// 然后如果使用 YLOG="ns*,-ns_3" node path/to/file.js 运行上面脚本，就只会得到第 1, 2, 4 条日志
-```
-
-### 使用类 grunt.log 丰富的样式
 ![styles](./res/styles.png)
 
 
-### 自定义你自己的样式 ylog.styleFlag(name, fn)
+### 自定义你自己的样式 
+
+`ylog.styleFlag(name, fn)`
 
 `name`： 是样式名称
 
@@ -125,12 +93,11 @@ ylog.rightLn('are you ok');
 
 ```
 
-
 ### 使用类 markdown 语法
 ![styles](./res/md.png)
 
 
-### 配置（或者叫 attribute）
+### 配置（或者叫 attributes）
 ![styles](./res/attrs.png)
 
 #### 局部配置

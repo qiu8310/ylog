@@ -246,7 +246,7 @@ function getFnResult(fn, args, ctx) {
 }
 
 var lastEOL = true; // 记录是否需要输出换行符（第一次输出不需要换行）
-var lastTime = Date.now();
+var lastTime;
 
 /**
  * 函数形式的链式调用会执行此函数
@@ -404,7 +404,7 @@ function call() {
 
 
 function getOutputTime(currTime) {
-  var diff = currTime - lastTime;
+  var diff = lastTime ? currTime - lastTime : 0;
   var levels = ylogProto.timeLevelColors;
   var color;
   for (var i = 0; i < levels.length; i++) {
