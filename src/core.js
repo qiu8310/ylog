@@ -285,11 +285,17 @@ function call() {
     delete options.attributes.ln;
   }
 
+  var lastFlag = h.last(flags);
+
+  // 最后一个是 exit()
+  if (lastFlag === 'exit' && arguments[0] !== false) { process.exit.apply(process, arguments); }
+
   // 没有输出，也直接返回
   if (!flagLevels.length && !flagStyles.length) { return rtn; }
 
   // 根据 attributes 输出 styles
-  var label = '', buffer = [], lastFlag = h.last(flags), i, currTime;
+  var label = '', buffer = [], i, currTime;
+
   if (options.calledCount === 0) {
     if (!lastEOL) { writeln(); }
     currTime = Date.now();
@@ -510,6 +516,7 @@ ylogProto.styleFlag = function(name, fn) {
 
 // 注入属性 flag
 appendFlag('no');
+appendFlag('exit');
 appendFlag('attr');
 Object.keys(attributes).forEach(function(key) {
   appendFlag(key);

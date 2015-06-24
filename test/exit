@@ -1,0 +1,5 @@
+var ylog = require('../');
+
+ylog.log('Exit').exit();
+ylog.log('Error')
+process.exit(1);
