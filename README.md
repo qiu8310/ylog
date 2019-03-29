@@ -25,7 +25,35 @@ __ylog 的特点:__
   - 支持 显示进程 ID
   - 支持 事件监听
   - 支持 进度条 输出 (使用了 [gauge](https://github.com/iarna/gauge) 和 [are-we-there-yet](https://www.npmjs.com/package/are-we-there-yet)  )
-  
+
+
+## TODO
+
+
+- [ ] 在输出某个对象时，可以排除某些 key 不输出，或只输出某些 key
+- [ ] 支持 browser（最好兼容 浏览器中 console 中的大部分方法，如 group/table/样式设置/profile）
+- [ ] 支持外部 level 优先级对比
+- [ ] 支持外部 判断是否当前可以输出某个级别的日志 ylog.fatal(function () {});
+- [ ] 不同的 namespace 可以设置不同的 level 级别，还要支持全局设置，还要支持在命名空间之间随意切换
+- [ ] 支持输出 table、list 的样式
+- [ ] 支持输出列表，并且可以分级别
+- [ ] 优化 padding，支持对输出的任何字段进行 padding 处理
+- [ ] 强制在执行 end 或 ln 才换行，否则永远都不自动换行
+- [ ] 优化 markdown
+  - [ ] 支持根据不同的条件切换不同的 md
+  - [ ] md 的标识不要使用特殊字符，太难记了，最好也支持字符串表示法
+  - [ ] md 的首个标识前面，或末个标识的后面不需要强制加上空格
+- [ ] 添加更多的 style，另外注意 style 和 md 混合时的处理方法
+- [ ] 输出对象时要有换行效果，不要一股脑的放在一行上
+- [ ] %o, %j, %s, %d 好像没什么作用，优化下，并给它们加上默认的颜色
+- [ ] 需要有 format 功能，保证参数达到一定的长度
+- [ ] 可以指定对一个对象自动取值的操作，像 toString(), inspect() 这样，可以给对象定义一个 ylog 方法
+- [ ] 不仅要能替换 %o 这些值，还要支持 %{someObjKey} 这种形式
+- [ ] 支持保存变量，下次输出的时候可以直接取出来，与 %{someObjKey} 结合
+- [ ] 添加 mute 和 unmute 方法，快速禁止或开启输出
+- [ ] 支持设置 stack 选项，现在 error 输出错误时都会输出其 stack ？（待定）
+
+
 
 ## Usage
 
@@ -44,9 +72,9 @@ __ylog 的特点:__
   - `only` mode: 表示只输出 levels 中指定的级别，其它级别不输出
   - `weight` mode: 表示只输出权重__大于等于__所有指定 levels 中的最低权重的级别（默认是此值）
 
-   
+
 ### 自定义新的 level，或修改现有 level
- 
+
 `ylog.levelFlag(name, weight, tag)`
 
 ```js
@@ -71,7 +99,7 @@ c.levelFlag('ok2', 5500, chalk.bold.green('✓'));
 ![styles](./res/styles.png)
 
 
-### 自定义你自己的样式 
+### 自定义你自己的样式
 
 `ylog.styleFlag(name, fn)`
 
